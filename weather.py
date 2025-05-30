@@ -24,20 +24,32 @@ class Weather:
         self.el_wind = Wind(self.win)
         self.el_precipitation = Precipitation(self.win)
         self.el_units = Units(self.win)
-        # Update weather data
+        # Update weather data on location change, unit change, or refresh
         self.el_location.searchbar.bind("<<ComboboxSelected>>", self.update_weather)
+        self.el_units.unit.trace_add("write", lambda *args: self.update_weather())
+        self.el_units.refresh.config(command=self.update_weather)
     
-    def update_weather(self, e):
+    def update_weather(self, e=None):
         # Get weather data
         try:
             self.lat = self.el_location.locations[self.el_location.searchbar.current()]["lat"]
             self.lon = self.el_location.locations[self.el_location.searchbar.current()]["long"]
             self.units = self.el_units.unit.get()
-            print("Lat:", self.lat)
-            print("Lon:", self.lon)
-            print("Units:", self.units)
         except IndexError:
-            pass
+            return
+        
+        self.weather = fetch_weather(self.lat, self.lon, self.units)
+
+        # Update UI with fetched weather data
+
+        self.el_mainweather.temp.set(f"{self.weather["temp"]}")
+        self.el_mainweather.tempunit.set("\u00b0C" if self.units == "Metric" else "\u00b0F")
+        self.el_mainweather.weather.set(get_weather(self.weather["weather_code"], self.weather["is_day"]))
+        self.el_feelslike.feels_like.set(f"{self.weather["feels_like"]} {"\u00b0C" if self.units == "Metric" else "\u00b0F"}")
+        self.el_wind.wind_velocity.set(f"{self.weather["wind_speed"]} {"km/h" if self.units == "Metric" else "mph"} {get_compass_dir(self.weather["wind_dir"])}")
+        self.el_wind.wind_stat.set(get_wind_stat(self.weather["wind_speed"], self.units) + ":")
+        self.el_precipitation.chance.set(f"{self.weather["prec_chance"]}%")
+        self.el_precipitation.prec.set(f"{self.weather["prec"]} {"mm" if self.units == "Metric" else "in"}")
         
 
 class Location:
@@ -99,7 +111,7 @@ class MainWeather:
         self.weather_img.pack(side="left", anchor="w")
         self.temp_label.pack(side="left")
         self.tempunit_label.pack(pady=15)
-        self.tempframe.pack()
+        self.tempframe.pack(anchor="w")
         self.weather_label.pack(anchor="w")
         self.textframe.pack()
         self.mainframe.pack()
@@ -187,20 +199,21 @@ def fetch_weather(lat, lon, units="Metric"):
     else:
         raise ValueError("Invalid units specified. Use 'metric' or 'imperial'.")
 
-    api_endpoint = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=precipitation_probability_max&current=temperature_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_direction_10m,rain,snowfall&timezone=auto&wind_speed_unit={wind_unit}&temperature_unit={temp_unit}&precipitation_unit={prec_unit}"
+    api_endpoint = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=precipitation_probability_max&current=temperature_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_direction_10m,rain,snowfall,weather_code&timezone=auto&wind_speed_unit={wind_unit}&temperature_unit={temp_unit}&precipitation_unit={prec_unit}"
 
     data = requests.get(api_endpoint).json()
 
     weather = {
-        "temp": data["current"]["temperature_2m"],
-        "feels_like": data["current"]["apparent_temperature"],
+        "weather_code": data["current"]["weather_code"],
+        "temp": round(data["current"]["temperature_2m"]),
+        "feels_like": round(data["current"]["apparent_temperature"]),
         "is_day": data["current"]["is_day"],
-        "prec": data["current"]["precipitation"],
+        "prec": round(data["current"]["precipitation"]),
         "prec_chance": data["daily"]["precipitation_probability_max"][0],
-        "wind_speed": data["current"]["wind_speed_10m"],
+        "wind_speed": round(data["current"]["wind_speed_10m"]),
         "wind_dir": data["current"]["wind_direction_10m"],
-        "rain": data["current"]["rain"],
-        "snowfall": data["current"]["snowfall"],
+        "rain": round(data["current"]["rain"]),
+        "snowfall": round(data["current"]["snowfall"]),
     }
 
     return weather
@@ -224,6 +237,89 @@ def fetch_locations(query):
         pass
     
     return locations
+
+def get_weather(code, is_day):
+    weather = {
+        0: "Clear",
+        1: "Mainly Clear",
+        2: "Partly Cloudy",
+        3: "Cloudy",
+        45: "Foggy",
+        48: "Rime Fog",
+        51: "Light Drizzle",
+        53: "Drizzle",
+        55: "Heavy Drizzle",
+        56: "Light Freezing Drizzle",
+        57: "Freezing Drizzle",
+        61: "Slightly Rainy",
+        63: "Rainy",
+        65: "Heavily Rainy",
+        66: "Light Freezing Rain",
+        67: "Freezing Rain",
+        71: "Lightly Snowy",
+        73: "Snowy",
+        75: "Heavily Snowy",
+        77: "Snow Grains",
+        80: "Slight Rain Showers",
+        81: "Rain Showers",
+        82: "Heavy Rain Showers",
+        85: "Slight Snow Showers",
+        86: "Snow Showers",
+        95: "Thunderstorm",
+        96: "Light Thunderstorms with Hail",
+        99: "Thunderstorm with Hail"
+    }
+
+    if is_day:
+        weather.update({
+            0: "Sunny",
+            1: "Mainly Sunny"
+        })
+    
+    return weather.get(code, "Unknown")
+
+def get_compass_dir(deg):
+    if deg < 0 or deg > 360:
+        raise ValueError("Invalid degree value. Must be between 0 and 360.")
+
+    directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] 
+    index = round(deg / 45) % 8
+
+    return directions[index]
+
+def get_wind_stat(wind_speed, units="Metric"):
+    wind_stats = ["No Wind", "Slightly Windy", "Windy", "Very Windy", "Stormy", "Violent Storm"]
+
+    if units == "Metric": # km/h
+        if 0 <= wind_speed < 1:
+            return wind_stats[0]
+        elif 1 <= wind_speed < 16:
+            return wind_stats[1]
+        elif 16 <= wind_speed < 31:
+            return wind_stats[2]
+        elif 31 <= wind_speed < 51:
+            return wind_stats[3]
+        elif 51 <= wind_speed < 76:
+            return wind_stats[4]
+        elif wind_speed >= 76:
+            return wind_stats[5]
+        else:
+            raise ValueError("Invalid wind speed value.")
+    elif units == "Imperial": # mph
+        if 0 <= wind_speed < 1:
+            return wind_stats[0]
+        elif 1 <= wind_speed < 10:
+            return wind_stats[1]
+        elif 10 <= wind_speed < 19:
+            return wind_stats[2]
+        elif 19 <= wind_speed < 32:
+            return wind_stats[3]
+        elif 32 <= wind_speed < 46:
+            return wind_stats[4]
+        elif wind_speed >= 46:
+            return wind_stats[5]
+        else:
+            raise ValueError("Invalid wind speed value.")
 
 def main():
     app = Weather()
