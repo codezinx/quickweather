@@ -4,3 +4,4 @@
 - https://thenounproject.com/icon/wind-5292087/
 - https://thenounproject.com/icon/rain-7672629/
 - https://gist.github.com/stellasphere/9490c195ed2b53c707087c8c2db4ec0c#file-descriptions-json
+- https://iconduck.com/sets/weather-icons

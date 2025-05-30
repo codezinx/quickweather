@@ -75,7 +75,7 @@ def get_weather(code, is_day):
         77: "Snow Grains",
         80: "Slight Rain Showers",
         81: "Rain Showers",
-        82: "Heavy Rain Showers",
+        82: "Violent Rain Showers",
         85: "Slight Snow Showers",
         86: "Snow Showers",
         95: "Thunderstorm",
