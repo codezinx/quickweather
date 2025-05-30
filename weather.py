@@ -11,17 +11,34 @@ import requests
 
 class Weather:
     def __init__(self):
+        # Initialize main window
         self.win = tk.Tk()
         self.win.title("QuickWeather")
         self.win.geometry("650x400")
         self.weather_icon = tk.PhotoImage(file="img/weather.png")
         self.win.iconphoto(False, self.weather_icon)
+        # Initialize app components
         self.el_location = Location(self.win)
         self.el_mainweather = MainWeather(self.win)
         self.el_feelslike = FeelsLike(self.win)
         self.el_wind = Wind(self.win)
         self.el_precipitation = Precipitation(self.win)
         self.el_units = Units(self.win)
+        # Update weather data
+        self.el_location.searchbar.bind("<<ComboboxSelected>>", self.update_weather)
+    
+    def update_weather(self, e):
+        # Get weather data
+        try:
+            self.lat = self.el_location.locations[self.el_location.searchbar.current()]["lat"]
+            self.lon = self.el_location.locations[self.el_location.searchbar.current()]["long"]
+            self.units = self.el_units.unit.get()
+            print("Lat:", self.lat)
+            print("Lon:", self.lon)
+            print("Units:", self.units)
+        except IndexError:
+            pass
+        
 
 class Location:
     def __init__(self, win):
@@ -35,6 +52,8 @@ class Location:
         self.label.pack(side="left")
         self.searchbar.pack()
         self.frame.pack()
+        # Variables to select latitute and longitude from location
+        self.locations = []
         # Bind update method to searchbar
         self.searchbar.bind("<KeyRelease>", self.update)
     
@@ -51,6 +70,7 @@ class Location:
         names = [loc["name"] for loc in locations]
 
         self.searchbar["values"] = names
+        self.locations = locations
 
         # Show dropdown
         self.searchbar.event_generate("<Down>")
@@ -155,12 +175,12 @@ class Units:
         self.refresh.pack()
         self.frame.pack()
 
-def fetch_weather(lat, lon, units="metric"):
-    if units == "metric":
+def fetch_weather(lat, lon, units="Metric"):
+    if units == "Metric":
         temp_unit = "celsius"
         wind_unit = "kmh"
         prec_unit = "mm"
-    elif units == "imperial":
+    elif units == "Imperial":
         temp_unit = "fahrenheit"
         wind_unit = "mph"
         prec_unit = "inch"
