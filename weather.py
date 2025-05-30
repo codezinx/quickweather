@@ -28,11 +28,32 @@ class Location:
         self.frame = ttk.Frame(win)
         self.label = ttk.Label(self.frame, text="Location:")
         self.location = tk.StringVar()
-        self.searchbar = ttk.Combobox(self.frame, textvariable=self.location, values=("test 1", "test 2", "test 3"))
+        self.searchbar = ttk.Combobox(self.frame, textvariable=self.location, values=())
+        # After ID, prevents searchbar from being updated on every keypress
+        self.after_id = None
         # Packing
         self.label.pack(side="left")
         self.searchbar.pack()
         self.frame.pack()
+        # Bind update method to searchbar
+        self.searchbar.bind("<KeyRelease>", self.update)
+    
+    def update(self, e):
+        # Cancel any previous scheduled update
+        if self.after_id:
+            self.frame.after_cancel(self.after_id)
+        # Schedule new update after finished typing
+        self.after_id = self.frame.after(500, self.do_update)
+
+    def do_update(self):
+        query = self.location.get()
+        locations = fetch_locations(query)
+        names = [loc["name"] for loc in locations]
+
+        self.searchbar["values"] = names
+
+        # Show dropdown
+        self.searchbar.event_generate("<Down>")
 
 class MainWeather:
     def __init__(self, win):
@@ -90,14 +111,13 @@ class Wind:
         self.velocity_label.pack(side="left")
         self.frame.pack()
 
-
 class Precipitation:
     def __init__(self, win):
         # Mainframe
         self.mainframe = ttk.Frame(win)
         # Variables
         self.chance = tk.StringVar(value="15%")
-        self.prec = tk.StringVar(value="0 mm/h")
+        self.prec = tk.StringVar(value="0 mm")
         # Precipitation icon
         self.prec_icon = ImageTk.PhotoImage(Image.open("img/rain.png").resize((40, 40)))
         self.prec_img = ttk.Label(self.mainframe, image=self.prec_icon)
@@ -134,6 +154,56 @@ class Units:
         self.dropdown.pack(side="left")
         self.refresh.pack()
         self.frame.pack()
+
+def fetch_weather(lat, lon, units="metric"):
+    if units == "metric":
+        temp_unit = "celsius"
+        wind_unit = "kmh"
+        prec_unit = "mm"
+    elif units == "imperial":
+        temp_unit = "fahrenheit"
+        wind_unit = "mph"
+        prec_unit = "inch"
+    else:
+        raise ValueError("Invalid units specified. Use 'metric' or 'imperial'.")
+
+    api_endpoint = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=precipitation_probability_max&current=temperature_2m,apparent_temperature,is_day,precipitation,wind_speed_10m,wind_direction_10m,rain,snowfall&timezone=auto&wind_speed_unit={wind_unit}&temperature_unit={temp_unit}&precipitation_unit={prec_unit}"
+
+    data = requests.get(api_endpoint).json()
+
+    weather = {
+        "temp": data["current"]["temperature_2m"],
+        "feels_like": data["current"]["apparent_temperature"],
+        "is_day": data["current"]["is_day"],
+        "prec": data["current"]["precipitation"],
+        "prec_chance": data["daily"]["precipitation_probability_max"][0],
+        "wind_speed": data["current"]["wind_speed_10m"],
+        "wind_dir": data["current"]["wind_direction_10m"],
+        "rain": data["current"]["rain"],
+        "snowfall": data["current"]["snowfall"],
+    }
+
+    return weather
+
+def fetch_locations(query):
+    api_endpoint = f"https://geocoding-api.open-meteo.com/v1/search?name={query}&count=10&language=en&format=json"
+
+    data = requests.get(api_endpoint).json()
+
+    locations = []
+
+    try:
+        for location in data["results"]:
+            state = location.get("admin1", "")
+            locations.append({
+                "name": f"{location["name"]}, {f"{state}, " if state != " " else ""}{location["country"]}",
+                "lat": location["latitude"],
+                "long": location["longitude"]
+            })
+    except KeyError:
+        pass
+    
+    return locations
 
 def main():
     app = Weather()
