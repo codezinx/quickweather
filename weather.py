@@ -18,9 +18,24 @@ class Weather:
         self.win.geometry("650x400")
         self.weather_icon = tk.PhotoImage(file="img/weather.png")
         self.win.iconphoto(False, self.weather_icon)
-        # Set font
+        # Set font and styles
+        self.win.configure(background="#305CDE")
         self.style = ttk.Style()
         self.style.configure(".", font=("Calibri", 12))
+        self.style.configure(".", background="#305CDE")
+        self.style.configure("TLabel", foreground="white")
+        self.style.layout("TMenubutton", [
+            ('Menubutton.background', None),
+            ('Menubutton.button', {'children':
+                [('Menubutton.focus', {'children':
+                    [('Menubutton.padding', {'children':
+                        [('Menubutton.label', {'side': 'left'}),
+                        ('Menubutton.indicator', {'side': 'right'})]
+                    })]
+                })]
+            })]
+        )
+        self.style.configure("TMenubutton", foreground="white", arrowcolor="white")
         self.win.option_add("*TCombobox*Listbox*Font", ("Calibri", 12))
         self.win.option_add("*TCombobox*Font", ("Calibri", 12))
         self.win.option_add("*Menu*Font", ("Calibri", 12))
@@ -35,6 +50,10 @@ class Weather:
         self.el_location.searchbar.bind("<<ComboboxSelected>>", self.update_weather)
         self.el_units.unit.trace_add("write", lambda *args: self.update_weather())
         self.el_units.refresh.config(command=self.update_weather)
+        # Initalize latitude, longitude, and units
+        self.lat = None
+        self.lon = None
+        self.units = "Metric"
     
     def update_weather(self, e=None):
         # Get weather data
@@ -42,8 +61,10 @@ class Weather:
             self.lat = self.el_location.locations[self.el_location.searchbar.current()]["lat"]
             self.lon = self.el_location.locations[self.el_location.searchbar.current()]["long"]
             self.units = self.el_units.unit.get()
+            self.el_location.saved_location.set(self.el_location.location.get())
         except IndexError:
-            return
+            if self.lat is None or self.lon is None:
+                return
         
         self.weather = fetch_weather(self.lat, self.lon, self.units)
 
@@ -58,6 +79,12 @@ class Weather:
         self.el_precipitation.chance.set(f"{self.weather["prec_chance"]}%")
         self.el_precipitation.prec.set(f"{self.weather["prec"]} {"mm" if self.units == "Metric" else "in"}")
 
+        # Update background colour
+
+        bg_color = get_weather_bg(self.weather["weather_code"], self.weather["is_day"])
+        self.win.configure(background=bg_color)
+        self.style.configure(".", background=bg_color)
+
         # Update weather icon
 
         self.el_mainweather.weather_icon = get_weather_icon(self.weather["weather_code"], self.weather["is_day"], (80, 80))
@@ -66,21 +93,37 @@ class Weather:
 
 class Location:
     def __init__(self, win):
-        self.frame = ttk.Frame(win)
+        self.frame = ttk.Frame(win, padding=10)
         self.label = ttk.Label(self.frame, text="Location:")
         self.location = tk.StringVar()
+        self.saved_location = tk.StringVar()
         self.searchbar = ttk.Combobox(self.frame, textvariable=self.location, values=())
         # After ID, prevents searchbar from being updated on every keypress
         self.after_id = None
         # Packing
         self.label.pack(side="left")
-        self.searchbar.pack()
-        self.frame.pack()
+        self.searchbar.pack(fill="x", expand=True, padx=5)
+        self.frame.pack(fill="x")
         # Variables to select latitute and longitude from location
         self.locations = []
+        # Searchbar placeholder
+        self.placeholder = "Begin by entering a city name only..."
+        self.show_placeholder()
+        self.searchbar.bind("<FocusIn>", self.clear_placeholder)
+        self.searchbar.bind("<FocusOut>", self.show_placeholder)
         # Bind update method to searchbar
         self.searchbar.bind("<KeyRelease>", self.update)
+
+    def clear_placeholder(self, e=None):
+        if self.searchbar.get() == self.placeholder:
+            self.searchbar.set("")
     
+    def show_placeholder(self, e=None):
+        if not self.searchbar.get() and self.saved_location.get() != "":
+            self.searchbar.set(self.saved_location.get())
+        elif not self.searchbar.get():
+            self.searchbar.set(self.placeholder)
+
     def update(self, e):
         # Cancel any previous scheduled update
         if self.after_id:
@@ -102,13 +145,13 @@ class Location:
 class MainWeather:
     def __init__(self, win):
         # Mainframe
-        self.mainframe = ttk.Frame(win)
+        self.mainframe = ttk.Frame(win, padding=10)
         # Variables
-        self.temp = tk.StringVar(value="25")
-        self.tempunit = tk.StringVar(value="\u00b0C")
-        self.weather = tk.StringVar(value="Sunny")
+        self.temp = tk.StringVar(value="XX")
+        self.tempunit = tk.StringVar(value="\u00b0U")
+        self.weather = tk.StringVar(value="Choose a location")
         # Weather Icon
-        self.weather_icon = get_weather_icon(0, True, (80, 80))
+        self.weather_icon = get_weather_icon(2, True, (80, 80))
         self.weather_img = ttk.Label(self.mainframe, image=self.weather_icon)
         self.weather_img.image = self.weather_icon
         # Text frames and styles
@@ -122,18 +165,20 @@ class MainWeather:
         # Packing frames and weather label
         self.weather_img.pack(side="left", anchor="w")
         self.temp_label.pack(side="left")
-        self.tempunit_label.pack(pady=15)
+        self.tempunit_label.pack(pady=12)
         self.tempframe.pack(anchor="w")
         self.weather_label.pack(anchor="w")
-        self.textframe.pack()
+        self.textframe.pack(padx=10)
         self.mainframe.pack()
 
 class FeelsLike:
     def __init__(self, win):
-        self.frame = ttk.Frame(win)
-        self.feels_like = tk.StringVar(value="20 \u00b0C")
+        self.frame = ttk.Frame(win, padding=10)
+        self.boldfont = ttk.Style()
+        self.boldfont.configure("Bold.TLabel", font=("Calibri", 12, "bold"))
+        self.feels_like = tk.StringVar(value="N/A")
         self.feels_like_text = ttk.Label(self.frame, text="Feels Like:")
-        self.feels_like_label = ttk.Label(self.frame, textvariable=self.feels_like)
+        self.feels_like_label = ttk.Label(self.frame, textvariable=self.feels_like, style="Bold.TLabel")
         # Packing
         self.feels_like_text.pack(side="left") 
         self.feels_like_label.pack(side="left")
@@ -141,18 +186,21 @@ class FeelsLike:
 
 class Wind:
     def __init__(self, win):
-        self.frame = ttk.Frame(win)
+        self.frame = ttk.Frame(win, padding=10)
         self.wind_get_img = Image.open("img/wind.png")
+        self.wind_get_img = invert_image(self.wind_get_img)
         self.wind_get_img.thumbnail((30, 30), Image.Resampling.LANCZOS)
         self.wind_icon = ImageTk.PhotoImage(self.wind_get_img)
         self.wind_img = ttk.Label(self.frame, image=self.wind_icon)
         self.wind_img.image = self.wind_icon
-        self.wind_stat = tk.StringVar(value="Windy:")
-        self.wind_velocity = tk.StringVar(value="30 km/h SE")
+        self.boldfont = ttk.Style()
+        self.boldfont.configure("Bold.TLabel", font=("Calibri", 12, "bold"))
+        self.wind_stat = tk.StringVar(value="Wind Stat:")
+        self.wind_velocity = tk.StringVar(value="N/A")
         self.label = ttk.Label(self.frame, textvariable=self.wind_stat)
-        self.velocity_label = ttk.Label(self.frame, textvariable=self.wind_velocity)
+        self.velocity_label = ttk.Label(self.frame, textvariable=self.wind_velocity, style="Bold.TLabel")
         # Packing
-        self.wind_img.pack(side="left")
+        self.wind_img.pack(side="left", padx=5)
         self.label.pack(side="left")
         self.velocity_label.pack(side="left")
         self.frame.pack()
@@ -160,38 +208,42 @@ class Wind:
 class Precipitation:
     def __init__(self, win):
         # Mainframe
-        self.mainframe = ttk.Frame(win)
+        self.mainframe = ttk.Frame(win, padding=10)
         # Variables
-        self.chance = tk.StringVar(value="15%")
-        self.prec = tk.StringVar(value="0 mm")
+        self.chance = tk.StringVar(value="N/A")
+        self.prec = tk.StringVar(value="N/A")
         # Precipitation icon
         self.prec_get_img = Image.open("img/rainy.png")
+        self.prec_get_img = invert_image(self.prec_get_img)
         self.prec_get_img.thumbnail((40, 40), Image.Resampling.LANCZOS)
         self.prec_icon = ImageTk.PhotoImage(self.prec_get_img)
         self.prec_img = ttk.Label(self.mainframe, image=self.prec_icon)
         self.prec_img.image = self.prec_icon
+        # Bold font style
+        self.boldfont = ttk.Style()
+        self.boldfont.configure("Bold.TLabel", font=("Calibri", 12, "bold"))
         # Labels
         self.textframe = ttk.Frame(self.mainframe)
         self.chance_frame = ttk.Frame(self.textframe)
         self.chance_text = ttk.Label(self.chance_frame, text="Chance of Rain/Snow:")
-        self.chance_label = ttk.Label(self.chance_frame, textvariable=self.chance)
+        self.chance_label = ttk.Label(self.chance_frame, textvariable=self.chance, style="Bold.TLabel")
         self.prec_frame = ttk.Frame(self.textframe)
         self.prec_text = ttk.Label(self.prec_frame, text="Precipitation:")
-        self.prec_label = ttk.Label(self.prec_frame, textvariable=self.prec)
+        self.prec_label = ttk.Label(self.prec_frame, textvariable=self.prec, style="Bold.TLabel")
         # Packing
         self.prec_img.pack(side="left")
         self.chance_text.pack(side="left")
         self.chance_label.pack()
-        self.chance_frame.pack()
+        self.chance_frame.pack(anchor="w")
         self.prec_text.pack(side="left")
         self.prec_label.pack()
-        self.prec_frame.pack()
-        self.textframe.pack()
+        self.prec_frame.pack(anchor="w")
+        self.textframe.pack(padx=10)
         self.mainframe.pack()
 
 class Units:
     def __init__(self, win):
-        self.frame = ttk.Frame(win)
+        self.frame = ttk.Frame(win, padding=10)
         self.label = ttk.Label(self.frame, text="Units:")
         self.options = ["Metric", "Imperial"]
         self.unit = tk.StringVar(value=self.options[0])
@@ -200,8 +252,8 @@ class Units:
         # Packing
         self.label.pack(side="left")
         self.dropdown.pack(side="left")
-        self.refresh.pack()
-        self.frame.pack()
+        self.refresh.pack(padx=5)
+        self.frame.pack(side="bottom")
 
 def fetch_weather(lat, lon, units="Metric"):
     if units == "Metric":
@@ -321,7 +373,7 @@ def get_weather_icon(code, is_day, size):
         img_path = "img/cloudy.png"
     
     get_img = Image.open(img_path)
-    # get_img = invert_image(get_img)    
+    get_img = invert_image(get_img)    
 
     get_img.thumbnail(size, Image.Resampling.LANCZOS)
 
@@ -339,6 +391,34 @@ def invert_image(img: Image.Image):
         return Image.merge("RGBA", (r2, g2, b2, a))
     else:
         return ImageOps.invert(img)
+
+def get_weather_bg(code, is_day):
+    hex_code = ""
+
+    if (code == 0 or code == 1) and is_day:
+        hex_code = "#FF7518" # orange
+    elif code == 0 or code == 1:
+        hex_code = "#272757" # midnight blue
+    elif code == 2 and is_day:
+        hex_code = "#305CDE" # royal blue
+    elif code == 2:
+        hex_code = "#272757" # midnight blue
+    elif code == 3:
+        hex_code = "#909EAE" # grey
+    elif code == 45 or code == 48:
+        hex_code = "#909EAE" # grey
+    elif code in {51, 56, 61, 66, 80}:
+        hex_code = "#305CDE" # royal blue
+    elif code in {53, 55, 57, 63, 65, 67, 81, 82}:
+        hex_code = "#305CDE" # royal blue
+    elif code in {71, 73, 75, 77, 85, 86}:
+        hex_code = "#069464" # teal
+    elif code in {95, 96, 99}:
+        hex_code = "#435161" # dark grey
+    else:
+        hex_code = "#305CDE" # grey
+    
+    return hex_code
 
 def get_compass_dir(deg):
     if deg < 0 or deg > 360:
