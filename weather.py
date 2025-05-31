@@ -6,7 +6,8 @@ Description: QuickWeather, simple weather app for current forecasts
 
 import tkinter as tk
 from tkinter import ttk
-from PIL import Image, ImageTk
+from tkinter.font import Font
+from PIL import Image, ImageOps, ImageTk
 import requests
 
 class Weather:
@@ -17,6 +18,12 @@ class Weather:
         self.win.geometry("650x400")
         self.weather_icon = tk.PhotoImage(file="img/weather.png")
         self.win.iconphoto(False, self.weather_icon)
+        # Set font
+        self.style = ttk.Style()
+        self.style.configure(".", font=("Calibri", 12))
+        self.win.option_add("*TCombobox*Listbox*Font", ("Calibri", 12))
+        self.win.option_add("*TCombobox*Font", ("Calibri", 12))
+        self.win.option_add("*Menu*Font", ("Calibri", 12))
         # Initialize app components
         self.el_location = Location(self.win)
         self.el_mainweather = MainWeather(self.win)
@@ -107,7 +114,7 @@ class MainWeather:
         # Text frames and styles
         self.textframe = ttk.Frame(self.mainframe)
         self.tempframe = ttk.Frame(self.textframe)
-        self.largetemp = ttk.Style().configure("Largetemp.TLabel", font=("Segoe UI", 35))
+        self.largetemp = ttk.Style().configure("Largetemp.TLabel", font=("Calibri", 35))
         # Labels
         self.temp_label = ttk.Label(self.tempframe, textvariable=self.temp, style="Largetemp.TLabel")
         self.tempunit_label = ttk.Label(self.tempframe, textvariable=self.tempunit)
@@ -314,9 +321,24 @@ def get_weather_icon(code, is_day, size):
         img_path = "img/cloudy.png"
     
     get_img = Image.open(img_path)
+    # get_img = invert_image(get_img)    
+
     get_img.thumbnail(size, Image.Resampling.LANCZOS)
 
     return ImageTk.PhotoImage(get_img)
+
+def invert_image(img: Image.Image):
+    if img.mode == "P":
+        img = img.convert("RGBA")
+
+    if img.mode == "RGBA":
+        r, g, b, a = img.split()
+        rgb_img = Image.merge("RGB", (r, g, b))
+        inv_img = ImageOps.invert(rgb_img)
+        r2, g2, b2 = inv_img.split()
+        return Image.merge("RGBA", (r2, g2, b2, a))
+    else:
+        return ImageOps.invert(img)
 
 def get_compass_dir(deg):
     if deg < 0 or deg > 360:
