@@ -50,7 +50,12 @@ class Weather:
         self.el_wind.wind_stat.set(get_wind_stat(self.weather["wind_speed"], self.units) + ":")
         self.el_precipitation.chance.set(f"{self.weather["prec_chance"]}%")
         self.el_precipitation.prec.set(f"{self.weather["prec"]} {"mm" if self.units == "Metric" else "in"}")
-        
+
+        # Update weather icon
+
+        self.el_mainweather.weather_icon = get_weather_icon(self.weather["weather_code"], self.weather["is_day"], (80, 80))
+        self.el_mainweather.weather_img.config(image=self.el_mainweather.weather_icon)
+        self.el_mainweather.weather_img.image = self.el_mainweather.weather_icon
 
 class Location:
     def __init__(self, win):
@@ -96,7 +101,7 @@ class MainWeather:
         self.tempunit = tk.StringVar(value="\u00b0C")
         self.weather = tk.StringVar(value="Sunny")
         # Weather Icon
-        self.weather_icon = ImageTk.PhotoImage(Image.open("img/sunnyk.png").resize((80, 80)))
+        self.weather_icon = get_weather_icon(0, True, (80, 80))
         self.weather_img = ttk.Label(self.mainframe, image=self.weather_icon)
         self.weather_img.image = self.weather_icon
         # Text frames and styles
@@ -130,7 +135,9 @@ class FeelsLike:
 class Wind:
     def __init__(self, win):
         self.frame = ttk.Frame(win)
-        self.wind_icon = ImageTk.PhotoImage(Image.open("img/wind.png").resize((30, 30)))
+        self.wind_get_img = Image.open("img/wind.png")
+        self.wind_get_img.thumbnail((30, 30), Image.Resampling.LANCZOS)
+        self.wind_icon = ImageTk.PhotoImage(self.wind_get_img)
         self.wind_img = ttk.Label(self.frame, image=self.wind_icon)
         self.wind_img.image = self.wind_icon
         self.wind_stat = tk.StringVar(value="Windy:")
@@ -151,7 +158,9 @@ class Precipitation:
         self.chance = tk.StringVar(value="15%")
         self.prec = tk.StringVar(value="0 mm")
         # Precipitation icon
-        self.prec_icon = ImageTk.PhotoImage(Image.open("img/rain.png").resize((40, 40)))
+        self.prec_get_img = Image.open("img/rainy.png")
+        self.prec_get_img.thumbnail((40, 40), Image.Resampling.LANCZOS)
+        self.prec_icon = ImageTk.PhotoImage(self.prec_get_img)
         self.prec_img = ttk.Label(self.mainframe, image=self.prec_icon)
         self.prec_img.image = self.prec_icon
         # Labels
@@ -277,6 +286,37 @@ def get_weather(code, is_day):
         })
     
     return weather.get(code, "Unknown")
+
+def get_weather_icon(code, is_day, size):
+    img_path = ""
+
+    if (code == 0 or code == 1) and is_day:
+        img_path = "img/sunny.png"
+    elif code == 0 or code == 1:
+        img_path = "img/clear_night.png"
+    elif code == 2 and is_day:
+        img_path = "img/partly_cloudy.png"
+    elif code == 2:
+        img_path = "img/partly_cloudy_night.png"
+    elif code == 3:
+        img_path = "img/cloudy.png"
+    elif code == 45 or code == 48:
+        img_path = "img/foggy.png"
+    elif code in {51, 56, 61, 66, 80}:
+        img_path = "img/light_rain.png"
+    elif code in {53, 55, 57, 63, 65, 67, 81, 82}:
+        img_path = "img/rainy.png"
+    elif code in {71, 73, 75, 77, 85, 86}:
+        img_path = "img/snowy.png"
+    elif code in {95, 96, 99}:
+        img_path = "img/thunderstorm.png"
+    else:
+        img_path = "img/cloudy.png"
+    
+    get_img = Image.open(img_path)
+    get_img.thumbnail(size, Image.Resampling.LANCZOS)
+
+    return ImageTk.PhotoImage(get_img)
 
 def get_compass_dir(deg):
     if deg < 0 or deg > 360:
