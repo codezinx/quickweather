@@ -1,2 +1,6 @@
-Pillow==11.2.1
-Requests==2.32.3
+certifi
+charset-normalizer
+idna
+pillow
+requests
+urllib3

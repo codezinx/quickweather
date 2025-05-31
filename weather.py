@@ -109,23 +109,23 @@ class Weather:
         # Stage IIa: Update UI text with fetched weather data
 
         # Set temperature variable to current temperature
-        self.el_mainweather.temp.set(f"{self.weather["temp"]}")
+        self.el_mainweather.temp.set(f"{self.weather['temp']}")
         # Set temperature unit variable to Celsius if units are Metric, and Fahrenheit if units are Imperial
-        self.el_mainweather.tempunit.set("\u00b0C" if self.units == "Metric" else "\u00b0F")
+        self.el_mainweather.tempunit.set("°C" if self.units == "Metric" else "°F")
         # Set weather variable to current weather description
         self.el_mainweather.weather.set(get_weather(self.weather["weather_code"], self.weather["is_day"]))
         # Set feels like temperature variable to current feels like temperature
         # Also set the unit to Celsius if units are Metric, and Fahrenheit if units are Imperial
-        self.el_feelslike.feels_like.set(f"{self.weather["feels_like"]} {"\u00b0C" if self.units == "Metric" else "\u00b0F"}")
+        self.el_feelslike.feels_like.set(f"{self.weather['feels_like']} {'°C' if self.units == 'Metric' else '°F'}")
         # Set vind velocity variable to current wind speed and cardinal (compass) direction
         # Also set to unit to km/h if units are Metric, else set unit to mph
-        self.el_wind.wind_velocity.set(f"{self.weather["wind_speed"]} {"km/h" if self.units == "Metric" else "mph"} {get_compass_dir(self.weather["wind_dir"])}")
+        self.el_wind.wind_velocity.set(f"{self.weather['wind_speed']} {'km/h' if self.units == 'Metric' else 'mph'} {get_compass_dir(self.weather['wind_dir'])}")
         # Set wind status variable to a wind status description based on wind speed
         self.el_wind.wind_stat.set(get_wind_stat(self.weather["wind_speed"], self.units) + ":")
         # Set precipitation chance variable to the likelihood of rain or snow
-        self.el_precipitation.chance.set(f"{self.weather["prec_chance"]}%")
+        self.el_precipitation.chance.set(f"{self.weather['prec_chance']}%")
         # Set precipitation variable to the amount of precipitation in mm if using Metric units, else in inches.
-        self.el_precipitation.prec.set(f"{self.weather["prec"]} {"mm" if self.units == "Metric" else "in"}")
+        self.el_precipitation.prec.set(f"{self.weather['prec']} {'mm' if self.units == 'Metric' else 'in'}")
 
         # Stage IIb: Update background colour based on weather
 
@@ -270,7 +270,7 @@ class MainWeather:
         # Stage II: Initialize key variables, like the current temperature, temp. unit, and weather, and their default values
 
         self.temp = tk.StringVar(value="XX") # Current temperature
-        self.tempunit = tk.StringVar(value="\u00b0U") # Temperature unit
+        self.tempunit = tk.StringVar(value="°U") # Temperature unit
         self.weather = tk.StringVar(value="Choose a location") # Current weather description (1-4 words)
 
         # Stage III: Initialize the weather icon
@@ -544,7 +544,7 @@ def fetch_locations(query: str):
         for location in data["results"]: # For every location,
             state = location.get("admin1", "") # Get the state / province from key 'admin1', and add...
             locations.append({
-                "name": f"{location["name"]}, {f"{state}, " if state != " " else ""}{location["country"]}", # the name (City, State/Province, Country)
+                "name": f"{location['name']}, {f'{state}, ' if state else ''}{location['country']}", # the name (City, State/Province, Country)
                 "lat": location["latitude"], # the latitude
                 "long": location["longitude"] # the longitude
             })
