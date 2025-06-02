@@ -542,9 +542,10 @@ def fetch_locations(query: str):
 
     try:
         for location in data["results"]: # For every location,
-            state = location.get("admin1", "") # Get the state / province from key 'admin1', and add...
+            state = location.get("admin1", "") # Get the state / province from key 'admin1'
+            country = location.get("country", "") # Get the country, unless if the location itself is a country, and add...
             locations.append({
-                "name": f"{location['name']}, {f'{state}, ' if state else ''}{location['country']}", # the name (City, State/Province, Country)
+                "name": f"{location['name']}{', ' if country else ''}{f'{state}, ' if state else ''}{country}", # the name (City, State/Province, Country)
                 "lat": location["latitude"], # the latitude
                 "long": location["longitude"] # the longitude
             })
