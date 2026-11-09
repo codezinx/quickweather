@@ -12,4 +12,3 @@ Code Helper Sources:
 - https://www.geeksforgeeks.org/loading-images-in-tkinter-using-pil/
 - https://stackoverflow.com/questions/273946/how-do-i-resize-an-image-using-pil-and-maintain-its-aspect-ratio
 - https://stackoverflow.com/questions/2498875/how-to-invert-colors-of-image-with-pil-python-imaging
-- GitHub Copilot
